@@ -35,7 +35,7 @@ Open a GitHub issue with tag `false-positive` including:
 5. Submit PR with detailed description
 
 ### 5. Bug Bounty
-Critical security vulnerabilities in ChainGuard itself: report to security@chainguard.protocol
+Critical security vulnerabilities in ChainGuard itself: report to sarthakdhaigude5337@gmail.com
 
 ## Code Standards
 - Python: Black formatter, type hints required
