@@ -1,0 +1,286 @@
+# ChainGuard Agent Network Configuration
+# config/agents.yaml
+
+global:
+  model: "claude-sonnet-4-20250514"
+  max_tokens: 1000
+  message_bus_url: "redis://localhost:6379"
+  message_bus_stream: "chainguard:events"
+  log_level: "INFO"
+  heartbeat_interval_seconds: 10
+  agent_timeout_ms: 5000
+
+agents:
+  orchestrator:
+    id: "agent_orchestrator_001"
+    name: "OrchestratorAgent"
+    temperature: 0.1
+    decision_timeout_ms: 1000
+    consensus_threshold: 0.6
+    auto_block_critical: true
+    block_threshold_score: 70
+    warn_threshold_score: 40
+    listens_to:
+      - "rpc.call.intercepted"
+      - "process.suspicious_activity"
+      - "wallet.access.unauthorized"
+      - "contract.interaction.pending"
+      - "payload.analysis.result"
+      - "threat.intel.hit"
+      - "reputation.score.low"
+      - "network.anomaly.detected"
+    emits:
+      - "decision.block"
+      - "decision.warn"
+      - "decision.pass"
+      - "dispatch.incident"
+
+  payload_scanner:
+    id: "agent_payload_002"
+    name: "PayloadScannerAgent"
+    temperature: 0.0
+    entropy_threshold_suspicious: 7.0
+    entropy_threshold_critical: 7.5
+    max_recursion_depth: 5
+    enable_virustotal: true
+    signature_db_path: "config/signatures.yaml"
+    supported_decoders:
+      - base64
+      - hex
+      - xor_0xff
+      - xor_0xaa
+      - zlib
+      - gzip
+    executable_magic_bytes:
+      pe: "4d5a"        # MZ
+      elf: "7f454c46"   # ELF
+      macho: "cafebabe" # Mach-O
+      macho64: "cffaedfe"
+
+  wallet_sentinel:
+    id: "agent_wallet_003"
+    name: "WalletSentinelAgent"
+    temperature: 0.1
+    monitor_metamask: true
+    monitor_phantom: true
+    monitor_ledger: true
+    clipboard_scan_interval_ms: 500
+    wallet_file_paths:
+      metamask_windows: "%APPDATA%\\MetaMask"
+      metamask_macos: "~/Library/Application Support/MetaMask"
+      phantom_windows: "%APPDATA%\\Phantom"
+      phantom_macos: "~/Library/Application Support/Phantom"
+    private_key_patterns:
+      ethereum: "[0-9a-fA-F]{64}"
+      solana: "[1-9A-HJ-NP-Za-km-z]{87,88}"
+      mnemonic: "(\\w+ ){11,23}\\w+"
+    auto_clear_suspicious_clipboard: true
+    drainer_patterns:
+      - "setApprovalForAll"
+      - "approve.*MAX_UINT256"
+      - "permit.*deadline"
+      - "delegatecall.*unverified"
+
+  threat_intel:
+    id: "agent_intel_004"
+    name: "ThreatIntelAgent"
+    temperature: 0.2
+    poll_interval_seconds: 60
+    cache_ttl_seconds: 300
+    feeds:
+      chainabuse:
+        enabled: true
+        url: "https://www.chainabuse.com/api/v0/reports"
+        priority: HIGH
+        refresh_seconds: 300
+      misttrack:
+        enabled: true
+        url: "https://openapi.misttrack.io/v1/risk_score"
+        priority: HIGH
+        refresh_seconds: 300
+      etherscan_labels:
+        enabled: true
+        priority: MEDIUM
+        refresh_seconds: 600
+      ofac_sdn:
+        enabled: true
+        url: "https://www.treasury.gov/ofac/downloads/sdn.xml"
+        priority: CRITICAL
+        refresh_seconds: 3600
+      virustotal:
+        enabled: true
+        query_on_demand: true
+        priority: HIGH
+      chainguard_oracle:
+        enabled: true
+        type: on_chain
+        priority: CRITICAL
+        refresh_seconds: 60
+    confidence_thresholds:
+      one_source: 0.3
+      two_sources: 0.6
+      three_sources: 0.85
+      ofac: 1.0
+
+  contract_auditor:
+    id: "agent_auditor_005"
+    name: "ContractAuditorAgent"
+    temperature: 0.1
+    simulation_network: "anvil"
+    anvil_fork_rpc: "${ETH_MAINNET_RPC}"
+    risk_threshold_block: 70
+    risk_threshold_warn: 40
+    simulation_timeout_seconds: 10
+    audit_checks:
+      - reentrancy_vulnerability
+      - unchecked_external_calls
+      - integer_overflow
+      - access_control_missing
+      - selfdestruct_present
+      - delegatecall_to_unknown
+      - price_oracle_manipulation
+      - honeypot_pattern
+      - hidden_mint_function
+      - proxy_upgrade_risk
+      - unlimited_approval_drain
+      - flash_loan_attack_vector
+    run_slither: true
+    check_etherscan_verified: true
+    min_contract_age_days_trusted: 30
+
+  incident_responder:
+    id: "agent_responder_006"
+    name: "IncidentResponderAgent"
+    temperature: 0.0
+    auto_quarantine: true
+    auto_kill_process: true
+    quarantine_directory: "/home/chainguard/quarantine"
+    evidence_directory: "/home/chainguard/evidence"
+    ipfs_gateway: "https://ipfs.infura.io:5001"
+    evidence_retention_days: 90
+    auto_submit_to_threat_registry: true
+    min_confidence_for_onchain_submit: 0.85
+    playbooks:
+      RANSOMWARE_DROPPER:
+        - BLOCK_RPC_CALL
+        - KILL_PROCESS
+        - QUARANTINE_FILE
+        - DUMP_MEMORY
+        - ENABLE_WALLET_ISOLATION
+        - UPLOAD_EVIDENCE_IPFS
+        - SUBMIT_THREAT_REGISTRY
+        - NOTIFY_USER
+        - GENERATE_REPORT
+      WALLET_DRAINER:
+        - BLOCK_SIGNING_REQUEST
+        - REVOKE_SUSPICIOUS_APPROVALS
+        - ENABLE_HARDWARE_WALLET_MODE
+        - UPLOAD_EVIDENCE_IPFS
+        - SUBMIT_THREAT_REGISTRY
+        - NOTIFY_USER
+      CREDENTIAL_STEALER:
+        - TERMINATE_WALLET_CONNECTIONS
+        - LOCK_WALLET_FILES
+        - KILL_PROCESS
+        - CLEAR_CLIPBOARD
+        - NOTIFY_USER_CRITICAL
+        - UPLOAD_EVIDENCE_IPFS
+        - SUBMIT_THREAT_REGISTRY
+
+  reputation_oracle:
+    id: "agent_reputation_007"
+    name: "ReputationOracleAgent"
+    temperature: 0.3
+    cache_ttl_seconds: 3600
+    default_score_unknown: 50
+    min_confirmations_to_blacklist: 3
+    graph_analysis_depth: 3
+    score_thresholds:
+      blacklisted: 10
+      high_risk: 30
+      suspicious: 50
+      neutral: 70
+      trusted: 90
+    score_factors:
+      age_max_points: 20
+      volume_max_points: 15
+      association_max_points: 25
+      code_quality_max_points: 20
+      community_max_points: 20
+    penalties:
+      ofac_listed: -100
+      confirmed_drainer: -100
+      chainabuse_per_report: -5
+      flagged_association_per_hop: -10
+      reentrancy_vulnerable: -15
+      unverified_contract: -5
+    sync_to_chain_interval_seconds: 3600
+
+  network_guard:
+    id: "agent_network_008"
+    name: "NetworkGuardAgent"
+    temperature: 0.1
+    poll_interval_ms: 100
+    rpc_call_count_window_seconds: 30
+    rapid_poll_threshold_calls: 10
+    blockchain_rpc_patterns:
+      - "infura.io"
+      - "alchemy.com"
+      - "quicknode.io"
+      - "polygon-rpc.com"
+      - "helius-rpc.com"
+      - ":8545"
+      - ":8546"
+      - ":9650"
+    allowed_processes:
+      - "chrome.exe"
+      - "firefox.exe"
+      - "brave.exe"
+      - "msedge.exe"
+      - "chromium"
+      - "firefox"
+      - "brave"
+      - "MetaMask"
+      - "ledger_live"
+      - "trezor_suite"
+    development_mode_additional_allowed:
+      - "node.exe"
+      - "node"
+      - "hardhat"
+      - "foundry"
+      - "python.exe"
+      - "python3"
+    critical_blocked_processes:
+      - "winword.exe"
+      - "excel.exe"
+      - "powerpnt.exe"
+      - "wscript.exe"
+      - "cscript.exe"
+      - "mshta.exe"
+    entropy_write_threshold: 7.5
+    monitor_registry: true
+    monitor_file_writes: true
+
+# Chain Configuration
+chains:
+  ethereum:
+    chain_id: 1
+    rpc_url: "${ETH_MAINNET_RPC}"
+    explorer: "https://etherscan.io"
+    contracts:
+      threat_registry: "${THREAT_REGISTRY_ADDRESS_ETH}"
+      reputation_oracle: "${REPUTATION_ORACLE_ADDRESS}"
+  polygon:
+    chain_id: 137
+    rpc_url: "${POLYGON_RPC}"
+    explorer: "https://polygonscan.com"
+    contracts:
+      incident_vault: "${INCIDENT_VAULT_ADDRESS}"
+  arbitrum:
+    chain_id: 42161
+    rpc_url: "${ARBITRUM_RPC}"
+    explorer: "https://arbiscan.io"
+  solana:
+    cluster: "mainnet-beta"
+    rpc_url: "${SOLANA_RPC}"
+    explorer: "https://solscan.io"
