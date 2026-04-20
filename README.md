@@ -84,6 +84,29 @@ cd frontend && npm run dev
 
 ---
 
+## 🧪 Detection Benchmark (Phase 0)
+
+Before deploying, validate ChainGuard detection quality against known threats and competitors.
+
+```bash
+# Run detection benchmark (requires ChainGuard agents + competitor APIs)
+python -m tests.benchmark.run_benchmark --scanners chainguard,blockaid,goplus
+
+# Strict CI gate: fail if catch-rate < 70% or trails best peer by >10%
+python -m tests.benchmark.run_benchmark --min-catch-rate 0.70 --parity-gap 0.10
+```
+
+**Corpus**: `tests/benchmark/corpus/{drainers,safe}.jsonl` — 10 seeds included, scale to 100+100 from Scam Sniffer / Chainabuse / rekt.news.
+
+**Exit criteria**:
+- ChainGuard catch-rate ≥ Blockaid - 10%
+- False positive rate ≤ 3%
+- p95 latency ≤ 3s
+
+See [Benchmark README](./tests/benchmark/README.md) for setup + corpus population.
+
+---
+
 ## 📁 Project Structure
 
 ```
@@ -133,7 +156,16 @@ chainguard/
 │   ├── deploy.js                ← Contract deployment
 │   ├── setup_agents.py          ← Agent initialization
 │   └── seed_threatdb.py         ← Seed initial threat data
-└── config/
+├── tests/
+│   ├── test_master.py           ← Comprehensive agent tests
+│   └── benchmark/
+│       ├── run_benchmark.py     ← Detection quality harness
+│       ├── adapters.py          ← ChainGuard/Blockaid/GoPlus comparison
+│       ├── corpus/
+│       │   ├── drainers.jsonl   ← Known-malicious samples
+│       │   └── safe.jsonl       ← Known-benign samples
+│       └── README.md            ← Benchmark guide
+├── config/
     ├── agents.yaml              ← Agent configuration
     ├── chains.yaml              ← Supported chain configs
     └── threats.yaml             ← Threat signature database
